@@ -1,0 +1,22 @@
+#!/bin/csh
+#PBS -A ERDCV00898ENQ
+#PBS -l walltime=20:00:00
+#PBS -l select=8:ncpus=44:mpiprocs=44
+#PBS -l place=scatter:excl
+#PBS -q standard
+#PBS -N ss
+#PBS -j oe
+#PBS -l application=proteus
+#PBS -V
+#PBS -m eba
+#PBS -M matthewhalso@gmail.com
+
+cd $PBS_O_WORKDIR
+mkdir $WORKDIR/ss/$PBS_JOBID
+cp -r geom $WORKDIR/ss/$PBS_JOBID
+cp *.py $WORKDIR/ss/$PBS_JOBID
+cp onyx.pbs $WORKDIR/ss/$PBS_JOBID
+cp petsc.options.asm $WORKDIR/ss/$PBS_JOBID
+cd  $WORKDIR/ss/$PBS_JOBID
+aprun -n ${BC_MPI_TASKS_ALLOC} parun ss_so.py -l 5 -F -O petsc.options.asm -C "T=60 he=0.25 test=False top=462 tailwater=436 water_level=457 water_width=306 flowrate=2.596" -D test
+#aprun -n 1 parun ss_so.py -l 5 -F -O petsc.options.asm -C "T=20 he=1 test=False top=462 tailwater=436 water_level=457 water_width=306" -D test
