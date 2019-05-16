@@ -2,12 +2,11 @@ from proteus.default_p import *
 from proteus.ctransportCoefficients import smoothedHeaviside
 from proteus.mprans import VOF
 from proteus import Context
-from ss import *
+from ar import *
 ct = Context.get()
 domain = ct.domain
 nd = domain.nd
 mesh = domain.MeshOptions
-
 
 genMesh = mesh.genMesh
 movingDomain = ct.movingDomain

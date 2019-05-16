@@ -1,7 +1,7 @@
 from proteus.default_p import *
 from proteus.mprans import NCLS
 from proteus import Context
-from ss import *
+from ar import *
 ct = Context.get()
 domain = ct.domain
 nd = domain.nd

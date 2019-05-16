@@ -2,7 +2,7 @@ from proteus.default_p import *
 from proteus.mprans import RANS2P
 import numpy as np
 from proteus import Context
-from ss import *
+from ar import *
 ct = Context.get()
 domain = ct.domain
 nd = domain.nd

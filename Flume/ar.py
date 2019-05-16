@@ -1,5 +1,5 @@
 """
-levee over topping
+Artificial Reef Flume
 """
 import numpy as np
 from math import *#sqrt
@@ -38,7 +38,7 @@ opts=Context.Options([
     # mesh refinement and timestep
     ("refinement", 1 ,"Refinement level, he = L/(4*refinement - 1), where L is the horizontal dimension"), 
     ("he",0.1, "element diameter"),
-    ("cfl", 0.33 ,"Target cfl"),
+    ("cfl", 0.1 ,"Target cfl"),
     # run time options
     ("T", 0.1 ,"Simulation time in s"),
     ("dt_fixed", 0.01, "Fixed time step in s"),
@@ -54,10 +54,19 @@ opts=Context.Options([
     ("test",True, "debugging"),
     ("upstream_length", None, "distance from inflow boundary to weir"),
     ("downstream_length", None, "distance from plunge pool to outflow boundary"),
-    ("top", 471, "height of the top boundary"),
+    ("top", 1.0, "height of the top boundary"),
     ("flowrate",1,"unit flowrate for 2d (assuming thickness of 1m)"),
+    ("kInflow",0.0,"kappa at the inflow boundary"),
+    ("xs",1.0, "x position of reef feature from outflow"),
+    ("x1",0.5," x distance from xs of the peak"),
+    ("y1",0.5," y distance from 0.0 of the peak"),
+    ("xe",2.0," x extent of reef from xs"),
+    ("Len",5.0," length of flume"),
+    ("useRANS",0,"turbulence model")
     ])
 
+
+kInflow=opts.kInflow
 he=opts.he
 # ----- CONTEXT ------ #
 
@@ -91,7 +100,7 @@ useMetrics = 1.0
 applyCorrection = True
 useVF = 1.0
 useOnlyVF = False
-useRANS = 0  # 0 -- None
+useRANS = opts.useRANS  # 0 -- None
              # 1 -- K-Epsilon
              # 2 -- K-Omega
 
@@ -167,76 +176,49 @@ parallelPartitioningType = proteus.MeshTools.MeshParallelPartitioningTypes.node
 nLayersOfOverlapForParallel = 0
 
 
-if opts.test == True:
-    boundaries=['inflow','outflow','bottom','top']
-    boundaryTags=dict([(key,i+1) for (i,key) in enumerate(boundaries)])
-    print boundaryTags
+#--------------------------------------------------------------------------------------------#
+boundaries=['inflow','outflow','bottom','top']
+boundaryTags=dict([(key,i+1) for (i,key) in enumerate(boundaries)])
+print boundaryTags
 
-    vertices=[[0.0, 0.0],#0
-              [2.5, 0.0],#1
-              [2.5, 1.0],
-              [0.0, 1.0]]
-
-
-    vertexFlags=[boundaryTags['outflow'],
-                 boundaryTags['bottom'],
-                 boundaryTags['inflow'],
-                 boundaryTags['top']]
-
-    segments=[[0,1],
-              [1,2],
-              [2,3],
-              [3,0]]
+vertices=[[0.0, 0.0],#0
+          [opts.xs, 0.0],
+          [opts.x1+opts.xs, opts.y1],
+          [opts.xe+opts.xs, 0.0],
+          [opts.Len, 0.0],
+          [opts.Len, opts.top],
+          [0.0, opts.top]]
 
 
+vertexFlags=[boundaryTags['outflow'],
+             boundaryTags['bottom'],
+             boundaryTags['bottom'],
+             boundaryTags['bottom'],
+             boundaryTags['bottom'],
+             boundaryTags['inflow'],
+             boundaryTags['top']]
 
-    segmentFlags=[boundaryTags['bottom'],
-                  boundaryTags['inflow'],
-                  boundaryTags['top'],
-                  boundaryTags['outflow']]
+segments=[[0,1],
+          [1,2],
+          [2,3],
+          [3,4],
+          [4,5],
+          [5,6],
+          [6,0]]
+
+segmentFlags=[boundaryTags['bottom'],
+              boundaryTags['bottom'],
+              boundaryTags['bottom'],
+              boundaryTags['bottom'],
+              boundaryTags['inflow'],
+              boundaryTags['top'],
+              boundaryTags['outflow']]
 
 
-    regx=(vertices[1][0]+vertices[0][0])/2
-    regy=(vertices[-1][1]+vertices[0][1])/2
-    regions=[[regx, regy]]
-    regionFlags=[1]
-
-else:
-    boundaries=['bottom','outflow','top','inflow']
-    boundaryTags=dict([(key,i+1) for (i,key) in enumerate(boundaries)])
-
-    vertices=np.genfromtxt("geom/domain_clip.csv", delimiter=",").tolist()
-    vertices=ssg.ups_len(vertices,opts.upstream_length)
-    vertices=ssg.dwns_len(vertices,opts.downstream_length)
-    vertices=ssg.top(vertices,opts.top)
-    regx=(vertices[1][0]+vertices[0][0])/2
-    regy=(vertices[-1][1]+vertices[0][1])/2
-
-    vertexFlags=ssg.v_flags(vertices,boundaryTags)
-
-    segments=ssg.segs(vertices)
-    segmentFlags=ssg.s_flags(segments,boundaryTags)
-    aa=1#70
-    bb=315#int(min(range(len(vertices)), key=lambda i: abs(np.array(vertices)[i,1]-tailwater)))
-    refverts=[[vertices[aa][0],vertices[aa][1]+4],[vertices[bb][0],vertices[bb][1]+2]]
-
-    refx=(vertices[int((aa+bb)*0.5)][0]*1.01)
-    refy=(vertices[int((aa+bb)*0.5)][1])
-    refFlags=[0,0,0,0]
-    vertices=vertices+refverts
-    vertexFlags=vertexFlags+refFlags    
-
-    vn=len(vertices)
-    refSegs=[[aa,vn-2],[vn-2,vn-1],[vn-1,bb]]
-    segments=segments+refSegs
-    segmentFlags=segmentFlags+refFlags
-    regions=[[regx, regy],[refx,refy]]
-    regionFlags=[1,2]
-#    he=(he**2)/2.0
-    regionConstraints=[he,0.1*he]
-
-    
-
+regx=(vertices[1][0]+vertices[0][0])/2
+regy=(vertices[-1][1]+vertices[0][1])/2
+regions=[[regx, regy]]
+regionFlags=[1]
 
  
 domain = Domain.PlanarStraightLineGraphDomain(vertices=vertices,
@@ -246,8 +228,6 @@ domain = Domain.PlanarStraightLineGraphDomain(vertices=vertices,
                                               regions = regions,
                                               regionFlags = regionFlags,
                                               )
-#                                              regionConstraints=regionConstraints)
-#                                             holes=holes)
 
 he = opts.he
 
@@ -260,8 +240,13 @@ domain.writeAsymptote("mesh")
 #triangleOptions = "VApq30Dena%8.8f"# % ((he**2)/2.0,)
 triangleOptions = "VApq30Dena%8.8f" % ((he**2)/2.0,)
 logEvent("""Mesh generated using: tetgen -%s %s"""  % (triangleOptions,domain.polyfile+".poly"))
-#proteus.MeshTools.
 domain.MeshOptions.triangleOptions=triangleOptions
+#--------------------------------------------------------------------------------------------#  
+
+
+
+
+
 
 waterLevel= opts.water_level
 bottom=min(vertices, key=lambda x: x[1])[1]
@@ -352,42 +337,33 @@ elif useRANS == 2:
     ns_closure = 4
 
 ##########################################
-#            Initial conditions for free-surface                     #
+#  Initial conditions for free-surface   #
 ##########################################
 
-if opts.test==False:
-    weir=vertices[25][0]#opts.water_width
-else:
-    weir=regx
-
-xstep=vertices[int(min(range(len(vertices)), key=lambda i: abs(np.array(vertices)[i,1]-tailwater)))][0]
 def signedDistance(X):
-#    x=X[0]
-#    y=X[1]
 
     return X[1]-opts.water_level
 
-    
-    #if x < weir:
-    #    return y-waterLevel
-    #elif x > xstep:
-    #    return y-tailwater
-    #else: 
-    #    d1= sqrt((y-waterLevel)**2 + (x-weir)**2)
-    #    d2= sqrt((y-tailwater)**2 + (x-xstep)**2)
-    #    return min(d1,d2)
-    
+#--------------------------------------------------------------------------------------------#  
+
+
 def twpflowVelocity_u(X,t):
-   waterspeed = u
-   H = smoothedHeaviside(epsFact_consrv_heaviside*he,X[1]-waterLevel)
-   return (1.0-H)*waterspeed
+    waterspeed = u
+    H = smoothedHeaviside(epsFact_consrv_heaviside*he,X[1]-waterLevel)
+    if t<1:
+        return (1.0-H)*waterspeed*t
+    else:
+        return (1.0-H)*waterspeed
 
 u=opts.flowrate/(opts.water_level-vertices[0][1])
 
 def twpflowVelocity_u_flux(X,t):
     waterspeed = u
     H = smoothedHeaviside(epsFact_consrv_heaviside*he,X[1]-waterLevel)
-    return -1*(1.0-H)*waterspeed
+    if t<1:
+	return -1*(1.0-H)*waterspeed*t
+    else:
+	return -1*(1.0-H)*waterspeed
 
 def intwpflowPressure(X,t):
     p_top = 0.0
